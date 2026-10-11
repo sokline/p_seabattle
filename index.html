@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKLN.Морской бой v0.2 — Мультиплеер</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background: #0f1923; color: #e0e0e0;
+        min-height: 100vh; display: flex;
+        flex-direction: column; align-items: center; padding: 16px;
+    }
+    h1 { color: #4fc3f7; font-size: 1.5rem; }
+    .subtitle { color: #78909c; font-size: .8rem; margin-bottom: 16px; }
+    .screen { display: none; width: 100%; max-width: 1000px; }
+    .screen.active { display: block; }
+
+    .setup-warning {
+        display: none;
+        background: #4a3a1a; border: 1px solid #ff9800;
+        color: #ffcc80; padding: 14px 18px;
+        border-radius: 10px; margin-bottom: 16px;
+        font-size: .9rem; line-height: 1.5;
+        max-width: 520px; margin-left: auto; margin-right: auto;
+    }
+    .setup-warning b { color: #ff9800; }
+    .setup-warning code {
+        background: #1a2733; padding: 2px 6px;
+        border-radius: 4px; color: #4fc3f7; font-size: .85em;
+    }
+
+    .auth-box {
+        background: #1a2733; border: 1px solid #2a3a4a;
+        border-radius: 12px; padding: 28px;
+        max-width: 420px; margin: 30px auto; text-align: center;
+    }
+    .auth-box h2 { color: #4fc3f7; margin-bottom: 18px; font-size: 1.2rem; }
+    .auth-box input {
+        width: 100%; padding: 12px 14px; margin-bottom: 10px;
+        background: #0f1923; border: 1px solid #2a3a4a;
+        border-radius: 8px; color: #e0e0e0;
+        font-size: 1rem; outline: none;
+    }
+    .auth-box input:focus { border-color: #4fc3f7; }
+    .auth-box button, .btn {
+        width: 100%; padding: 12px;
+        background: #4fc3f7; color: #0f1923;
+        border: none; border-radius: 8px;
+        font-size: 1rem; font-weight: 600; cursor: pointer;
+        transition: background .2s;
+    }
+    .auth-box button:hover:not(:disabled) { background: #81d4fa; }
+    .auth-box button:disabled { background: #455a64; color: #78909c; cursor: not-allowed; }
+    .link {
+        color: #4fc3f7; font-size: .85rem; cursor: pointer;
+        margin-top: 12px; display: inline-block;
+        text-decoration: underline; background: none;
+        border: none; padding: 0; font-family: inherit;
+    }
+    .link:hover { color: #81d4fa; }
+    .msg { font-size: .85rem; margin-bottom: 10px; display: none; padding: 8px; border-radius: 6px; }
+    .msg.err { color: #ef9a9a; background: #3a1a1a; display: block; }
+    .msg.ok { color: #a5d6a7; background: #1a3a1a; display: block; }
+
+    .pending-banner {
+        background: #ff9800; color: #0f1923;
+        padding: 14px 20px; border-radius: 8px;
+        text-align: center; font-weight: 600;
+        margin-bottom: 16px; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:.7;} }
+
+    .top-bar {
+        display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 12px;
+        margin-bottom: 20px; background: #1a2733;
+        padding: 14px 18px; border-radius: 12px;
+        border: 1px solid #2a3a4a;
+    }
+    .top-bar .user { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .nickname { color: #4fc3f7; font-weight: 600; }
+    .phone { color: #78909c; font-size: .85rem; }
+    .stat { color: #66bb6a; font-size: .85rem; }
+    .stat.loss { color: #ef5350; }
+    .btn-secondary {
+        padding: 8px 16px; background: transparent;
+        color: #4fc3f7; border: 1px solid #2a3a4a;
+        border-radius: 8px; cursor: pointer;
+        font-size: .85rem; width: auto;
+    }
+    .btn-secondary:hover { border-color: #4fc3f7; background: #1a2733; }
+
+    .lobby-panel {
+        background: #1a2733; border: 1px solid #2a3a4a;
+        border-radius: 12px; padding: 24px;
+        text-align: center; margin-bottom: 20px;
+    }
+    .lobby-panel p { color: #b0bec5; margin-bottom: 16px; }
+    .lobby-panel .big-btn {
+        display: inline-block; padding: 14px 40px;
+        background: #4fc3f7; color: #0f1923;
+        border: none; border-radius: 10px;
+        font-size: 1.05rem; font-weight: 700;
+        cursor: pointer; transition: all .2s;
+    }
+    .lobby-panel .big-btn:hover:not(:disabled) { background: #81d4fa; transform: translateY(-1px); }
+    .lobby-panel .big-btn:disabled { background: #455a64; color: #78909c; cursor: not-allowed; transform: none; }
+
+    .spinner {
+        display: inline-block; width: 18px; height: 18px;
+        border: 3px solid #455a64; border-top-color: #4fc3f7;
+        border-radius: 50%; animation: spin .9s linear infinite;
+        vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .history-panel {
+        background: #1a2733; border: 1px solid #2a3a4a;
+        border-radius: 12px; padding: 20px;
+    }
+    .history-panel h3 { color: #4fc3f7; font-size: 1rem; margin-bottom: 12px; }
+    .history-list { list-style: none; }
+    .history-list li {
+        padding: 8px 0; border-bottom: 1px solid #2a3a4a;
+        font-size: .85rem; display: flex;
+        justify-content: space-between; flex-wrap: wrap; gap: 6px;
+    }
+    .history-list li:last-child { border-bottom: none; }
+
+    .game-info {
+        text-align: center; padding: 12px;
+        border-radius: 10px; margin-bottom: 14px;
+        font-weight: 600; transition: all .3s;
+    }
+    .game-info.my-turn { background: #0d47a1; color: #90caf9; }
+    .game-info.opp-turn { background: #4a148c; color: #ce93d8; }
+    .game-info.finished { background: #1b5e20; color: #a5d6a7; }
+
+    .boards { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+    .board-wrap { text-align: center; }
+    .board-wrap h3 { font-size: .9rem; color: #b0bec5; margin-bottom: 8px; font-weight: 500; }
+    .board-wrap h3 span { color: #4fc3f7; }
+    .board-wrap h3.opp span { color: #ef5350; }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(10, 34px);
+        grid-template-rows: repeat(10, 34px);
+        gap: 2px; background: #0a1018;
+        padding: 4px; border-radius: 8px;
+        border: 1px solid #2a3a4a;
+    }
+    .cell { background: #1a2733; border-radius: 3px; position: relative; transition: background .1s; }
+    .cell.ship { background: #37474f; }
+    .cell.ship.hit { background: #ef5350; }
+    .cell.miss { background: #263238; }
+    .cell.miss::after {
+        content: '•'; color: #546e7a;
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%,-50%); font-size: 1.2rem;
+    }
+    .cell.ship.hit::after {
+        content: '✕'; color: #fff;
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%,-50%); font-size: 1rem; font-weight: bold;
+    }
+    .cell.clickable { cursor: crosshair; }
+    .cell.clickable:hover { background: #455a64; box-shadow: inset 0 0 0 2px #4fc3f7; }
+
+    @media (max-width: 820px) {
+        .grid { grid-template-columns: repeat(10, 28px); grid-template-rows: repeat(10, 28px); }
+    }
+    @media (max-width: 620px) {
+        .grid { grid-template-columns: repeat(10, 24px); grid-template-rows: repeat(10, 24px); }
+    }
+</style>
+</head>
+<body>
+
+<h1>⚓ SKLN.Морской бой v0.2</h1>
+<p class="subtitle">Мультиплеер • Firebase Firestore</p>
+
+<!-- ==================== AUTH ==================== -->
+<div id="screen-auth" class="screen active">
+
+    <!-- Плашка о необходимости настройки -->
+    <div id="setup-warning" class="setup-warning">
+        <b>⚠️ Firebase не настроен.</b><br>
+        Откройте <code>index.html</code> и замените объект <code>firebaseConfig</code>
+        в начале скрипта на свои ключи из
+        <a href="https://console.firebase.google.com/" target="_blank" style="color:#4fc3f7">Firebase Console</a> →
+        Project settings → Your apps → Web.<br>
+        Также включите <b>Firestore Database</b> и поставьте правила
+        <code>allow read, write: if true;</code> (для прототипа).
+    </div>
+
+    <div class="auth-box">
+        <!-- Login -->
+        <div id="login-view">
+            <h2>🔐 Вход</h2>
+            <div class="msg" id="login-msg"></div>
+            <input type="tel" id="login-phone" placeholder="Номер телефона" autocomplete="tel">
+            <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password">
+            <button id="btn-login">Войти</button>
+            <button class="link" id="btn-go-register" type="button">Первый раз? Зарегистрироваться</button><br>
+            <button class="link" id="btn-go-reset" type="button">Забыли пароль?</button>
+        </div>
+
+        <!-- Register -->
+        <div id="register-view" style="display:none">
+            <h2>📝 Регистрация</h2>
+            <div class="msg" id="reg-msg"></div>
+            <input type="tel" id="reg-phone" placeholder="Номер телефона" autocomplete="tel">
+            <input type="password" id="reg-password" placeholder="Пароль" autocomplete="new-password">
+            <input type="text" id="reg-nick" placeholder="Ник (латиница, 3–20)" autocomplete="nickname">
+            <div id="nick-suggest" style="margin-bottom:10px"></div>
+            <button id="btn-register">Зарегистрироваться</button>
+            <button class="link" id="btn-go-login-from-reg" type="button">Уже есть аккаунт? Войти</button>
+        </div>
+
+        <!-- Reset -->
+        <div id="reset-view" style="display:none">
+            <h2>🔑 Сброс пароля</h2>
+            <p style="color:#78909c;font-size:.9rem;margin-bottom:16px">
+                Введите телефон — администратор сбросит пароль вручную.
+            </p>
+            <div class="msg" id="reset-msg"></div>
+            <input type="tel" id="reset-phone" placeholder="Номер телефона">
+            <button id="btn-reset">Запросить сброс</button>
+            <button class="link" id="btn-go-login-from-reset" type="button">Назад ко входу</button>
+        </div>
+
+        <!-- Pending -->
+        <div id="pending-view" style="display:none">
+            <div class="pending-banner">⏳ Ожидайте сброса пароля администратором</div>
+            <button class="btn-secondary" style="width:100%" id="btn-back-from-pending">← Назад</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== LOBBY ==================== -->
+<div id="screen-lobby" class="screen">
+    <div class="top-bar">
+        <div class="user">
+            <span class="nickname" id="lobby-nick">—</span>
+            <span class="phone" id="lobby-phone"></span>
+            <span class="stat" id="lobby-wins"></span>
+            <span class="stat loss" id="lobby-losses"></span>
+        </div>
+        <button class="btn-secondary" id="btn-logout">Выйти</button>
+    </div>
+
+    <div class="lobby-panel">
+        <p id="lobby-status">Готовы сыграть? Найдите соперника.</p>
+        <button class="big-btn" id="find-btn">🔍 Найти игру</button>
+        <button class="big-btn" id="cancel-btn"
+                style="display:none;background:#ef5350;color:#fff">✕ Отменить поиск</button>
+    </div>
+
+    <div class="history-panel">
+        <h3>📊 Последние игры</h3>
+        <ul class="history-list" id="history-list">
+            <li style="color:#546e7a">Пока нет записей</li>
+        </ul>
+    </div>
+</div>
+
+<!-- ==================== GAME ==================== -->
+<div id="screen-game" class="screen">
+    <div class="top-bar">
+        <div class="user">
+            <span class="nickname" id="game-my-nick">—</span>
+            <span class="phone">против</span>
+            <span class="nickname" id="game-opp-nick" style="color:#ef5350">—</span>
+        </div>
+        <button class="btn-secondary" id="btn-surrender">Сдаться</button>
+    </div>
+
+    <div class="game-info my-turn" id="turn-info">Ход</div>
+
+    <div class="boards">
+        <div class="board-wrap">
+            <h3>Ваше поле: <span id="own-label">вы</span></h3>
+            <div class="grid" id="grid-own"></div>
+        </div>
+        <div class="board-wrap">
+            <h3 class="opp">Поле противника: <span id="opp-label">—</span></h3>
+            <div class="grid" id="grid-opp"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== SCRIPT ==================== -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import {
+    getFirestore, doc, setDoc, getDoc, updateDoc,
+    onSnapshot, collection, query, where, getDocs,
+    serverTimestamp, runTransaction, deleteDoc, limit, orderBy
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+// ============================================================
+// 🔧 FIREBASE CONFIG — ЗАМЕНИТЕ НА СВОИ ЗНАЧЕНИЯ
+// ============================================================
+const firebaseConfig = {
+    apiKey:            "YOUR_API_KEY",
+    authDomain:        "YOUR_PROJECT.firebaseapp.com",
+    projectId:         "YOUR_PROJECT_ID",
+    storageBucket:     "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "000000000000",
+    appId:             "1:000000000000:web:xxxxxxxxxxxxxxxx"
+};
+
+// ==================== ИНИЦИАЛИЗАЦИЯ ====================
+const configReady =
+    firebaseConfig.apiKey &&
+    firebaseConfig.apiKey !== "YOUR_API_KEY" &&
+    firebaseConfig.projectId &&
+    firebaseConfig.projectId !== "YOUR_PROJECT_ID";
+
+let db = null;
+if (configReady) {
+    try {
+        db = getFirestore(initializeApp(firebaseConfig));
+        console.log('[SKLN] Firebase инициализирован');
+    } catch (e) {
+        console.error('[SKLN] Ошибка Firebase:', e);
+    }
+} else {
+    console.warn('[SKLN] Firebase НЕ настроен — вставьте свои ключи в firebaseConfig');
+}
+
+// ==================== STATE ====================
+let currentUser = null;
+let currentGameId = null;
+let gameState = null;
+let unsubGame = null;
+let unsubLobby = null;
+let isSearching = false;
+
+// ==================== УТИЛИТЫ ====================
+async function sha256(str) {
+    const buf = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(str + 'skln_seabattle_salt')
+    );
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function setMsg(id, text, type = 'err') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'msg ' + type;
+}
+function clearMsg(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = '';
+    el.className = 'msg';
+}
+function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById('screen-' + name);
+    if (el) el.classList.add('active');
+}
+function showView(name) {
+    ['login', 'register', 'reset', 'pending'].forEach(v => {
+        const el = document.getElementById(v + '-view');
+        if (el) el.style.display = v === name ? 'block' : 'none';
+    });
+    ['login-msg', 'reg-msg', 'reset-msg'].forEach(clearMsg);
+}
+window.showView = showView; // на всякий случай
+
+// Показать предупреждение о настройке
+if (!configReady) {
+    const w = document.getElementById('setup-warning');
+    if (w) w.style.display = 'block';
+}
+
+// ==================== NICK SUGGESTIONS ====================
+const ADJ  = ['Быстрый','Хитрый','Грозный','Смелый','Тихий','Морской','Стальной','Штормовой','Бывалый','Дерзкий'];
+const NOUN = ['Волк','Ястреб','Дракон','Тигр','Кракен','Акула','Лев','Сокол','Пират','Капитан'];
+
+function suggestNicks(base, taken) {
+    const lower = taken.map(n => n.toLowerCase());
+    const out = new Set();
+    for (let i = 0; i < 20 && out.size < 3; i++) {
+        const c = base + (Math.floor(Math.random() * 900) + 100);
+        if (!lower.includes(c.toLowerCase())) out.add(c);
+    }
+    let guard = 0;
+    while (out.size < 5 && guard++ < 100) {
+        const a = ADJ[Math.floor(Math.random() * ADJ.length)];
+        const n = NOUN[Math.floor(Math.random() * NOUN.length)];
+        const num = Math.floor(Math.random() * 90) + 10;
+        const c = a + n + num;
+        if (!lower.includes(c.toLowerCase())) out.add(c);
+    }
+    return [...out].slice(0, 5);
+}
+
+// ==================== AUTH ====================
+async function handleLogin() {
+    clearMsg('login-msg');
+    if (!configReady) return setMsg('login-msg', 'Firebase не настроен. См. жёлтую плашку.');
+
+    const phone = document.getElementById('login-phone').value.trim();
+    const pass  = document.getElementById('login-password').value;
+    if (!phone || !pass) return setMsg('login-msg', 'Заполните все поля');
+
+    try {
+        const ref  = doc(db, 'users', phone);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return setMsg('login-msg', 'Пользователь не найден');
+
+        const user = snap.data();
+        const hash = await sha256(pass);
+        if (user.passwordHash !== hash) return setMsg('login-msg', 'Неверный пароль');
+
+        if (user.resetRequested) return showView('pending');
+
+        currentUser = { phone, nick: user.nick, wins: user.wins || 0, losses: user.losses || 0 };
+        localStorage.setItem('skln_phone', phone);
+        await checkActiveGame();
+        if (!currentGameId) enterLobby();
+    } catch (e) {
+        console.error(e);
+        setMsg('login-msg', 'Ошибка соединения: ' + e.message);
+    }
+}
+
+async function handleRegister() {
+    clearMsg('reg-msg');
+    if (!configReady) return setMsg('reg-msg', 'Firebase не настроен. См. жёлтую плашку.');
+
+    const phone = document.getElementById('reg-phone').value.trim();
+    const pass  = document.getElementById('reg-password').value;
+    const nick  = document.getElementById('reg-nick').value.trim();
+
+    if (!phone || !pass || !nick) return setMsg('reg-msg', 'Заполните все поля');
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(nick))
+        return setMsg('reg-msg', 'Ник: 3–20 символов, латиница, цифры, _');
+    if (pass.length < 4) return setMsg('reg-msg', 'Пароль минимум 4 символа');
+
+    try {
+        const userRef = doc(db, 'users', phone);
+        const snap    = await getDoc(userRef);
+        if (snap.exists()) return setMsg('reg-msg', 'Этот номер уже зарегистрирован');
+
+        const nickQ    = query(collection(db, 'users'), where('nick', '==', nick));
+        const nickSnap = await getDocs(nickQ);
+        if (!nickSnap.empty) {
+            const allQ  = await getDocs(collection(db, 'users'));
+            const taken = allQ.docs.map(d => d.data().nick);
+            const sugg  = suggestNicks(nick, taken);
+            const box   = document.getElementById('nick-suggest');
+            box.innerHTML = '<p style="font-size:.8rem;color:#ff9800;margin-bottom:6px">Ник занят. Попробуйте:</p>';
+            sugg.forEach(s => {
+                const b = document.createElement('button');
+                b.textContent = s;
+                b.type = 'button';
+                b.className = 'btn-secondary';
+                b.style.margin = '3px';
+                b.onclick = () => {
+                    document.getElementById('reg-nick').value = s;
+                    box.innerHTML = '';
+                };
+                box.appendChild(b);
+            });
+            return setMsg('reg-msg', 'Ник уже используется');
+        }
+
+        const passwordHash = await sha256(pass);
+        await setDoc(userRef, {
+            phone, nick, passwordHash,
+            wins: 0, losses: 0,
+            resetRequested: false,
+            createdAt: serverTimestamp()
+        });
+
+        setMsg('reg-msg', 'Успешно! Выполняется вход...', 'ok');
+        setTimeout(() => {
+            currentUser = { phone, nick, wins: 0, losses: 0 };
+            localStorage.setItem('skln_phone', phone);
+            enterLobby();
+        }, 700);
+    } catch (e) {
+        console.error(e);
+        setMsg('reg-msg', 'Ошибка соединения: ' + e.message);
+    }
+}
+
+async function handleResetRequest() {
+    clearMsg('reset-msg');
+    if (!configReady) return setMsg('reset-msg', 'Firebase не настроен.');
+
+    const phone = document.getElementById('reset-phone').value.trim();
+    if (!phone) return setMsg('reset-msg', 'Введите телефон');
+
+    try {
+        const ref  = doc(db, 'users', phone);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return setMsg('reset-msg', 'Пользователь не найден');
+
+        await updateDoc(ref, { resetRequested: true });
+        setMsg('reset-msg', 'Запрос отправлен. Ожидайте сброса администратором.', 'ok');
+    } catch (e) {
+        console.error(e);
+        setMsg('reset-msg', 'Ошибка: ' + e.message);
+    }
+}
+
+function logout() {
+    if (unsubGame) { unsubGame(); unsubGame = null; }
+    if (unsubLobby) { unsubLobby(); unsubLobby = null; }
+    currentUser = null;
+    currentGameId = null;
+    gameState = null;
+    isSearching = false;
+    localStorage.removeItem('skln_phone');
+    showScreen('auth');
+    showView('login');
+}
+
+// ==================== ПРИВЯЗКА ВСЕХ КНОПОК ====================
+function bindUI() {
+    // Auth
+    document.getElementById('btn-login')      .addEventListener('click', handleLogin);
+    document.getElementById('btn-register')   .addEventListener('click', handleRegister);
+    document.getElementById('btn-reset')      .addEventListener('click', handleResetRequest);
+    document.getElementById('btn-go-register')          .addEventListener('click', () => showView('register'));
+    document.getElementById('btn-go-reset')             .addEventListener('click', () => showView('reset'));
+    document.getElementById('btn-go-login-from-reg')    .addEventListener('click', () => showView('login'));
+    document.getElementById('btn-go-login-from-reset')  .addEventListener('click', () => showView('login'));
+    document.getElementById('btn-back-from-pending')    .addEventListener('click', () => showView('login'));
+
+    // Lobby
+    document.getElementById('btn-logout').addEventListener('click', logout);
+    document.getElementById('find-btn')  .addEventListener('click', findGame);
+    document.getElementById('cancel-btn').addEventListener('click', cancelSearch);
+
+    // Game
+    document.getElementById('btn-surrender').addEventListener('click', surrender);
+}
+
+// ==================== АКТИВНАЯ ИГРА ====================
+async function checkActiveGame() {
+    if (!configReady || !currentUser) return;
+    try {
+        const q = query(collection(db, 'games'),
+            where('playerPhones', 'array-contains', currentUser.phone));
+        const snap = await getDocs(q);
+        const active = snap.docs.find(d => ['waiting', 'playing'].includes(d.data().status));
+        if (active) {
+            currentGameId = active.id;
+            enterGame();
+        }
+    } catch (e) {
+        console.error('checkActiveGame:', e);
+    }
+}
+
+// ==================== LOBBY ====================
+function enterLobby() {
+    showScreen('lobby');
+    document.getElementById('lobby-nick').textContent   = currentUser.nick;
+    document.getElementById('lobby-phone').textContent  = currentUser.phone;
+    document.getElementById('lobby-wins').textContent   = '🏆 ' + (currentUser.wins || 0);
+    document.getElementById('lobby-losses').textContent = '💀 ' + (currentUser.losses || 0);
+    document.getElementById('find-btn').style.display   = 'inline-block';
+    document.getElementById('cancel-btn').style.display = 'none';
+    document.getElementById('lobby-status').textContent = 'Готовы сыграть? Найдите соперника.';
+    loadHistory();
+}
+
+async function loadHistory() {
+    if (!configReady) return;
+    try {
+        const q = query(
+            collection(db, 'history'),
+            where('players', 'array-contains', currentUser.phone),
+            orderBy('date', 'desc'),
+            limit(10)
+        );
+        const snap = await getDocs(q);
+        const list = document.getElementById('history-list');
+        if (snap.empty) {
+            list.innerHTML = '<li style="color:#546e7a">Пока нет записей</li>';
+            return;
+        }
+        list.innerHTML = snap.docs.map(d => {
+            const g     = d.data();
+            const isWin = g.winner === currentUser.phone;
+            const badge = isWin
+                ? '<span style="color:#66bb6a">Победа</span>'
+                : '<span style="color:#ef5350">Поражение</span>';
+            const date  = g.date?.toDate ? g.date.toDate().toLocaleString('ru-RU') : '—';
+            const opp   = isWin ? g.loserNick : g.winnerNick;
+            return `<li><span>vs ${opp}</span> ${badge} <span style="color:#546e7a">${date}</span></li>`;
+        }).join('');
+    } catch (e) {
+        console.error('loadHistory:', e);
+    }
+}
+
+async function findGame() {
+    if (isSearching || !configReady) return;
+    isSearching = true;
+    document.getElementById('find-btn').style.display   = 'none';
+    document.getElementById('cancel-btn').style.display = 'inline-block';
+    document.getElementById('lobby-status').innerHTML   =
+        '<span class="spinner"></span> Поиск соперника...';
+
+    try {
+        const waitingQ = query(collection(db, 'games'), where('status', '==', 'waiting'));
+        const snap     = await getDocs(waitingQ);
+        const candidates = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(g => g.playerPhones && !g.playerPhones.includes(currentUser.phone));
+
+        if (candidates.length > 0) {
+            await joinGame(candidates[0].id);
+            return;
+        }
+
+        const board   = generateBoard();
+        const gameRef = doc(collection(db, 'games'));
+        await setDoc(gameRef, {
+            p1: { phone: currentUser.phone, nick: currentUser.nick, board },
+            p2: null,
+            playerPhones: [currentUser.phone],
+            status: 'waiting',
+            turn: 'p1',
+            shotsOnP1: [],
+            shotsOnP2: [],
+            winner: null,
+            recorded: false,
+            createdAt: serverTimestamp()
+        });
+        currentGameId = gameRef.id;
+
+        unsubLobby = onSnapshot(doc(db, 'games', currentGameId), async (s) => {
+            if (!s.exists()) return;
+            const g = s.data();
+            if (g.status === 'playing') {
+                unsubLobby(); unsubLobby = null;
+                isSearching = false;
+                enterGame();
+            }
+        });
+
+        setTimeout(() => { if (isSearching) cancelSearch(); }, 30000);
+    } catch (e) {
+        console.error('findGame:', e);
+        isSearching = false;
+        document.getElementById('find-btn').style.display   = 'inline-block';
+        document.getElementById('cancel-btn').style.display = 'none';
+        document.getElementById('lobby-status').textContent = 'Ошибка: ' + e.message;
+    }
+}
+
+async function joinGame(gameId) {
+    const ref  = doc(db, 'games', gameId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+    const g = snap.data();
+    if (g.status !== 'waiting') {
+        isSearching = false;
+        document.getElementById('lobby-status').textContent = 'Игра уже занята, попробуйте снова';
+        document.getElementById('find-btn').style.display   = 'inline-block';
+        document.getElementById('cancel-btn').style.display = 'none';
+        return;
+    }
+
+    const board = generateBoard();
+    await updateDoc(ref, {
+        p2: { phone: currentUser.phone, nick: currentUser.nick, board },
+        playerPhones: [g.p1.phone, currentUser.phone],
+        status: 'playing'
+    });
+    currentGameId = gameId;
+    isSearching = false;
+    enterGame();
+}
+
+async function cancelSearch() {
+    if (currentGameId && configReady) {
+        try {
+            const ref  = doc(db, 'games', currentGameId);
+            const snap = await getDoc(ref);
+            if (snap.exists() && snap.data().status === 'waiting') {
+                await deleteDoc(ref);
+            }
+        } catch (e) { /* ignore */ }
+    }
+    if (unsubLobby) { unsubLobby(); unsubLobby = null; }
+    currentGameId = null;
+    isSearching = false;
+    document.getElementById('find-btn').style.display   = 'inline-block';
+    document.getElementById('cancel-btn').style.display = 'none';
+    document.getElementById('lobby-status').textContent = 'Готовы сыграть? Найдите соперника.';
+}
+
+// ==================== ГЕНЕРАЦИЯ ПОЛЯ ====================
+function generateBoard() {
+    const board = new Array(100).fill(0);
+    const ships = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+
+    for (const size of ships) {
+        let placed = false, attempts = 0;
+        while (!placed && attempts++ < 500) {
+            const horiz = Math.random() < 0.5;
+            const r = Math.floor(Math.random() * (horiz ? 10 : 10 - size + 1));
+            const c = Math.floor(Math.random() * (horiz ? 10 - size + 1 : 10));
+
+            const cells = [];
+            for (let i = 0; i < size; i++) {
+                cells.push([horiz ? r : r + i, horiz ? c + i : c]);
+            }
+            let valid = true;
+            for (const [rr, cc] of cells) {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = rr + dr, nc = cc + dc;
+                        if (nr >= 0 && nr < 10 && nc >= 0 && nc < 10 &&
+                            board[nr * 10 + nc] === 1) {
+                            valid = false;
+                        }
+                    }
+                }
+            }
+            if (valid) {
+                for (const [rr, cc] of cells) board[rr * 10 + cc] = 1;
+                placed = true;
+            }
+        }
+    }
+    return board;
+}
+
+// ==================== ИГРА ====================
+function enterGame() {
+    showScreen('game');
+    if (unsubGame) unsubGame();
+    unsubGame = onSnapshot(doc(db, 'games', currentGameId), (snap) => {
+        if (!snap.exists()) { leaveToLobby(); return; }
+        gameState = { id: snap.id, ...snap.data() };
+        renderGame();
+        if (gameState.status === 'finished' && !gameState.recorded) {
+            recordResult(gameState);
+        }
+    });
+}
+
+function renderGame() {
+    if (!gameState) return;
+    const g  = gameState;
+    const me = currentUser.phone;
+    const myKey  = g.p1.phone === me ? 'p1' : 'p2';
+    const oppKey = myKey === 'p1' ? 'p2' : 'p1';
+    const meObj  = g[myKey];
+    const oppObj = g[oppKey];
+
+    document.getElementById('game-my-nick').textContent  = meObj.nick + ' (вы)';
+    document.getElementById('game-opp-nick').textContent = oppObj ? oppObj.nick : 'ожидание...';
+    document.getElementById('own-label').textContent     = meObj.nick;
+    document.getElementById('opp-label').textContent     = oppObj ? oppObj.nick : '—';
+
+    const turnInfo = document.getElementById('turn-info');
+    if (g.status === 'finished') {
+        turnInfo.className = 'game-info finished';
+        turnInfo.textContent = g.winner === me ? '🏆 Вы победили!' : '💀 Вы проиграли';
+    } else if (g.status === 'waiting') {
+        turnInfo.className = 'game-info opp-turn';
+        turnInfo.textContent = 'Ожидание соперника...';
+    } else {
+        const myTurn = g.turn === myKey;
+        turnInfo.className = 'game-info ' + (myTurn ? 'my-turn' : 'opp-turn');
+        turnInfo.textContent = myTurn ? '🎯 Ваш ход' : '⏳ Ход противника';
+    }
+
+    const myShots  = myKey  === 'p1' ? g.shotsOnP1 : g.shotsOnP2;
+    const oppShots = oppKey === 'p1' ? g.shotsOnP1 : g.shotsOnP2;
+
+    renderBoard('grid-own', meObj.board, myShots, false, null);
+
+    const canFire = g.status === 'playing' && g.turn === myKey;
+    renderBoard('grid-opp', oppObj ? oppObj.board : new Array(100).fill(0),
+                oppShots, true, canFire);
+}
+
+function renderBoard(containerId, board, shots, isEnemy, canFire) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    const shotsMap = {};
+    (shots || []).forEach(s => { shotsMap[s.r + ',' + s.c] = s; });
+
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            const idx  = r * 10 + c;
+            const shot = shotsMap[r + ',' + c];
+
+            if (isEnemy) {
+                if (shot) {
+                    if (shot.hit) cell.classList.add('ship', 'hit');
+                    else          cell.classList.add('miss');
+                }
+                if (canFire && !shot) {
+                    cell.classList.add('clickable');
+                    cell.addEventListener('click', () => fire(r, c));
+                }
+            } else {
+                if (board[idx] === 1) cell.classList.add('ship');
+                if (shot) {
+                    if (shot.hit) cell.classList.add('ship', 'hit');
+                    else          cell.classList.add('miss');
+                }
+            }
+            container.appendChild(cell);
+        }
+    }
+}
+
+async function fire(r, c) {
+    if (!gameState || gameState.status !== 'playing') return;
+    const g  = gameState;
+    const me = currentUser.phone;
+    const myKey = g.p1.phone === me ? 'p1' : 'p2';
+    if (g.turn !== myKey) return;
+
+    const gameRef = doc(db, 'games', currentGameId);
+    try {
+        await runTransaction(db, async (tx) => {
+            const snap = await tx.get(gameRef);
+            if (!snap.exists()) throw new Error('Игра не найдена');
+            const data = snap.data();
+            if (data.status !== 'playing') throw new Error('Игра не активна');
+            if (data.turn !== myKey)       throw new Error('Не ваш ход');
+
+            const oppKey      = myKey === 'p1' ? 'p2' : 'p1';
+            const targetBoard = data[oppKey].board;
+            const shotsKey    = myKey === 'p1' ? 'shotsOnP2' : 'shotsOnP1';
+            const shots       = data[shotsKey] || [];
+
+            if (shots.some(s => s.r === r && s.c === c)) throw new Error('Уже стреляли');
+
+            const hit      = targetBoard[r * 10 + c] === 1;
+            const newShots = [...shots, { r, c, hit }];
+            const totalHit = newShots.filter(s => s.hit).length;
+            const isWin    = totalHit === 20;
+
+            const update = { [shotsKey]: newShots };
+
+            if (isWin) {
+                update.status = 'finished';
+                update.winner = me;
+                update.turn   = null;
+            } else if (hit) {
+                update.turn = myKey;
+            } else {
+                update.turn = oppKey;
+            }
+            tx.update(gameRef, update);
+        });
+    } catch (e) {
+        console.error('fire error:', e.message);
+    }
+}
+
+async function recordResult(game) {
+    if (!game || game.recorded) return;
+    const gameRef   = doc(db, 'games', game.id);
+    const winnerKey = game.winner === game.p1.phone ? 'p1' : 'p2';
+    const loserKey  = winnerKey === 'p1' ? 'p2' : 'p1';
+    const winnerPhone = game[winnerKey].phone;
+    const loserPhone  = game[loserKey].phone;
+    const winnerNick  = game[winnerKey].nick;
+    const loserNick   = game[loserKey].nick;
+
+    try {
+        await runTransaction(db, async (tx) => {
+            const gDoc = await tx.get(gameRef);
+            if (gDoc.data().recorded) return;
+
+            const wRef = doc(db, 'users', winnerPhone);
+            const lRef = doc(db, 'users', loserPhone);
+            const wDoc = await tx.get(wRef);
+            const lDoc = await tx.get(lRef);
+
+            tx.update(gameRef, { recorded: true });
+
+            if (wDoc.exists()) tx.update(wRef, { wins:   (wDoc.data().wins   || 0) + 1 });
+            if (lDoc.exists()) tx.update(lRef, { losses: (lDoc.data().losses || 0) + 1 });
+
+            tx.set(doc(collection(db, 'history')), {
+                gameId: game.id,
+                players: [winnerPhone, loserPhone],
+                winner: winnerPhone,
+                loser:  loserPhone,
+                winnerNick, loserNick,
+                date: serverTimestamp()
+            });
+        });
+
+        if (currentUser.phone === winnerPhone) currentUser.wins++;
+        if (currentUser.phone === loserPhone)  currentUser.losses++;
+    } catch (e) {
+        console.error('recordResult:', e);
+    }
+}
+
+async function surrender() {
+    if (!gameState || gameState.status !== 'playing') { leaveToLobby(); return; }
+    if (!confirm('Сдаться? Это зачтётся как поражение.')) return;
+
+    const me = currentUser.phone;
+    const myKey  = gameState.p1.phone === me ? 'p1' : 'p2';
+    const oppKey = myKey === 'p1' ? 'p2' : 'p1';
+    try {
+        await updateDoc(doc(db, 'games', currentGameId), {
+            status: 'finished',
+            winner: gameState[oppKey].phone,
+            turn:   null
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function leaveToLobby() {
+    if (unsubGame) { unsubGame(); unsubGame = null; }
+    currentGameId = null;
+    gameState = null;
+    enterLobby();
+}
+
+// ==================== СТАРТ ====================
+async function init() {
+    bindUI();
+    console.log('[SKLN] UI привязан');
+
+    if (!configReady) {
+        showView('login');
+        return;
+    }
+
+    const savedPhone = localStorage.getItem('skln_phone');
+    if (savedPhone) {
+        try {
+            const snap = await getDoc(doc(db, 'users', savedPhone));
+            if (snap.exists()) {
+                const u = snap.data();
+                if (u.resetRequested) { showView('pending'); return; }
+                currentUser = {
+                    phone: savedPhone, nick: u.nick,
+                    wins: u.wins || 0, losses: u.losses || 0
+                };
+                await checkActiveGame();
+                if (!currentGameId) enterLobby();
+                return;
+            }
+        } catch (e) {
+            console.error('init session:', e);
+        }
+    }
+    showView('login');
+}
+
+init();
+</script>
+</body>
+</html>
